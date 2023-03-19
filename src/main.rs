@@ -4,6 +4,8 @@ use std::sync::{Arc};
 use axum::response::{Html, IntoResponse, Redirect};
 use sqlx::migrate::MigrateDatabase;
 use serde::Deserialize;
+use sanitize_html::sanitize_str;
+use sanitize_html::rules::predefined::DEFAULT;
 
 #[derive(Debug)]
 struct AppState {
@@ -26,7 +28,7 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
         .unwrap();
 
     let message_list = messages.iter().enumerate().fold(String::new(), |acc, (_i, msg)| {
-        acc + &format!("<h3>{} [{}]</h3><p>{}</p>\n", msg.name, msg.created_at, msg.content)
+        acc + &format!("<div><h3>{} <span>{}</span></h3><p>{}</p></div>\n", msg.name, msg.created_at, msg.content)
     });
 
     Html(format!(
@@ -34,17 +36,40 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
             <html>
             <head>
                 <title>Message Board</title>
+                <style>
+                body {{ font-family: sans-serif; }}
+                input {{ display: block; width: 100%; margin-bottom: 0.5rem; }}
+                textarea {{ display: block; width: 100%; margin-bottom: 0.5rem; }}
+                label {{ display: block; width: 100%; }}
+                form > h2 {{ font-size: 1rem; font-weight: bold; text-transform: uppercase; padding: 0.25rem 0.5rem;
+                background: #eee; margin: 0; }}
+                form {{ border: 1px solid #eee; margin-bottom: 1rem; }}
+                .form-wrapper {{ padding: 1rem; }}
+                .messages > h2 {{ font-size: 1rem; font-weight: bold; text-transform: uppercase; padding: 0.25rem 0.5rem;
+                background: #eee; margin: 2rem 0 1rem 0; }}
+                .messages > div {{ padding: 1rem 1rem 0 1rem; border: 1px solid #eee; margin-bottom: 1rem; }}
+                .messages h3 {{ font-weight: normal; font-size: 1.125rem; margin: 0; }}
+                .messages h3 > span {{ font-size: 0.75rem; }}
+                </style>
             </head>
             <body>
+            <h1>Message Board</h1>
 
-                <form method="POST" action="/add">
-                <input type="text" name="name" />
-                <textarea name="message"></textarea>
-                <input type="submit" value="Save" />
-                </form>
+            <form method="POST" action="/add">
+            <h2>Add message</h2>
+            <div class="form-wrapper">
+            <label for="name-input">Name:</label>
+            <input id="name-input" type="text" name="name" />
+            <label for="message-input">Message:</label>
+            <textarea rows="5" id="message-input" name="message"></textarea>
+            <button type="submit">Save</button>
+            </div>
+            </form>
 
-                <h1>Messages:</h1>
-                {}
+            <div class="messages">
+            <h2>Messages:</h2>
+            {}
+            </div>
             </body>
             </html>
         "#,
@@ -63,8 +88,8 @@ struct MessageForm {
 async fn add_message_handler( Extension(state): Extension<Arc<AppState>>, Form(message_form): Form<MessageForm>) -> impl IntoResponse {
     let mut conn = state.db_pool.acquire().await.unwrap();
     sqlx::query("INSERT INTO messages (name, content) VALUES (?, ?)")
-        .bind(&message_form.name)
-        .bind(&message_form.message)
+        .bind(sanitize_str(&DEFAULT, &message_form.name).unwrap_or_else(|_| String::from("")))
+        .bind(sanitize_str(&DEFAULT, &message_form.message).unwrap_or_else(|_| String::from("")))
         .execute(&mut conn)
         .await
         .unwrap();

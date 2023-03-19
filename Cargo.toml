@@ -13,3 +13,4 @@ tower-http = "0.4.0"
 sqlx = { version = "0.6.2", features = ["runtime-tokio-native-tls", "sqlite", "chrono"]}
 serde = { version = "1.0.157", features = ["derive"] }
 chrono = "0.4.24"
+sanitize_html = "0.7.0"
