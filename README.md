@@ -1,5 +1,7 @@
 # Rust Message Board
 
+[Install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+
 Run with cargo:
 
 ```shell
