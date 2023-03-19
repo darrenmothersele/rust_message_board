@@ -1,0 +1,4 @@
+/target
+.idea
+messages.db*
+rust_message_board.iml
