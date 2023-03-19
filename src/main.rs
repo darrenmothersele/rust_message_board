@@ -12,7 +12,6 @@ struct AppState {
 
 #[derive(sqlx::FromRow)]
 struct Message {
-    id: i32,
     name: String,
     content: String,
     created_at: chrono::DateTime<chrono::Utc>,
@@ -27,7 +26,7 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
         .unwrap();
 
     let message_list = messages.iter().enumerate().fold(String::new(), |acc, (_i, msg)| {
-        acc + &format!("{}. {} - {} [{}]\n", msg.id, msg.name, msg.content, msg.created_at)
+        acc + &format!("<h3>{} [{}]</h3><p>{}</p>\n", msg.name, msg.created_at, msg.content)
     });
 
     Html(format!(
@@ -45,8 +44,7 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
                 </form>
 
                 <h1>Messages:</h1>
-                <pre>{}</pre>
-
+                {}
             </body>
             </html>
         "#,
@@ -109,6 +107,7 @@ async fn main() {
 
     let addr = "127.0.0.1:3000".parse().unwrap();
 
+    println!("Launching server on http://localhost:3000");
     Server::bind(&addr)
         .serve(app.into_make_service())
         .await
