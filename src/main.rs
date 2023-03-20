@@ -162,9 +162,9 @@ async fn main() {
         .route("/add", post(add_message_handler))
         .layer(Extension(app_state));
 
-    let addr = "127.0.0.1:3000".parse().unwrap();
+    let addr = "0.0.0.0:3000".parse().unwrap();
 
-    println!("Launching server on http://localhost:3000");
+    println!("Launching server on http://127.0.0.1:3000");
     Server::bind(&addr)
         .serve(app.into_make_service())
         .await
