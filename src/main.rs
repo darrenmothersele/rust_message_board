@@ -1,4 +1,5 @@
-use axum::{routing::get, Form, routing::post, Extension, Router, Server};
+use axum::{routing::get, Form, routing::post, Extension, Router, Server,
+           extract::Query,};
 use sqlx::{Sqlite, sqlite::SqlitePool};
 use std::sync::{Arc};
 use axum::response::{Html, IntoResponse, Redirect};
@@ -19,10 +20,19 @@ struct Message {
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
+#[derive(Deserialize)]
+struct Pagination {
+    offset: Option<u32>,
+}
+
+const PAGE_SIZE: u32 = 100;
+
 #[axum_macros::debug_handler]
-async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResponse {
+async fn show_messages_handler(state: Extension<Arc<AppState>>, pagination: Query<Pagination>) -> impl IntoResponse {
     let mut conn = state.db_pool.acquire().await.unwrap();
-    let messages = sqlx::query_as::<_, Message>("SELECT * FROM messages ORDER BY created_at DESC")
+    let messages = sqlx::query_as::<_, Message>("SELECT * FROM messages ORDER BY created_at DESC LIMIT ? OFFSET ?")
+        .bind(PAGE_SIZE)
+        .bind(pagination.offset.unwrap_or(0))
         .fetch_all(&mut conn)
         .await
         .unwrap();
@@ -31,12 +41,25 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
         acc + &format!("<div><h3>{} <span>{}</span></h3><p>{}</p></div>\n", msg.name, msg.created_at, msg.content)
     });
 
+    let start: String = if pagination.offset.unwrap_or(0) > 0 {
+        r#"<a href="/">&laquo; back</a>"#.to_string()
+    } else {
+        "".to_string()
+    };
+    let next: String = if messages.len() >= PAGE_SIZE as usize {
+        format!(r#"<a href="/?offset={}">more &raquo;</a>"#,
+                pagination.offset.unwrap_or(0) + PAGE_SIZE)
+    } else {
+        "".to_string()
+    };
+
     Html(format!(
         r#"
             <html>
             <head>
                 <title>Message Board</title>
                 <style>
+                h1 {{ font-size: 1.5rem; }}
                 body {{ font-family: sans-serif; }}
                 input {{ display: block; width: 100%; margin-bottom: 0.5rem; }}
                 textarea {{ display: block; width: 100%; margin-bottom: 0.5rem; }}
@@ -50,6 +73,7 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
                 .messages > div {{ padding: 1rem 1rem 0 1rem; border: 1px solid #eee; margin-bottom: 1rem; }}
                 .messages h3 {{ font-weight: normal; font-size: 1.125rem; margin: 0; }}
                 .messages h3 > span {{ font-size: 0.75rem; }}
+                .pagination {{ display: flex; justify-content: space-between; }}
                 </style>
             </head>
             <body>
@@ -70,10 +94,18 @@ async fn show_messages_handler(state: Extension<Arc<AppState>>) -> impl IntoResp
             <h2>Messages:</h2>
             {}
             </div>
+
+            <div class="pagination">
+            <span>{}</span>
+            <span>{}</span>
+            </div>
+
             </body>
             </html>
         "#,
-        message_list
+        message_list,
+        start,
+        next
     ))
 }
 
