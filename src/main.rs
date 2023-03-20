@@ -1,5 +1,5 @@
 use axum::{routing::get, Form, routing::post, Extension, Router, Server,
-           extract::Query,};
+           extract::Query, };
 use sqlx::{Sqlite, sqlite::SqlitePool};
 use std::sync::{Arc};
 use axum::response::{Html, IntoResponse, Redirect};
@@ -117,7 +117,7 @@ struct MessageForm {
 }
 
 #[axum_macros::debug_handler]
-async fn add_message_handler( Extension(state): Extension<Arc<AppState>>, Form(message_form): Form<MessageForm>) -> impl IntoResponse {
+async fn add_message_handler(Extension(state): Extension<Arc<AppState>>, Form(message_form): Form<MessageForm>) -> impl IntoResponse {
     let mut conn = state.db_pool.acquire().await.unwrap();
     sqlx::query("INSERT INTO messages (name, content) VALUES (?, ?)")
         .bind(sanitize_str(&DEFAULT, &message_form.name).unwrap_or_else(|_| String::from("")))
